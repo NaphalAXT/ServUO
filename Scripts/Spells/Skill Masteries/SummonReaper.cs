@@ -1,19 +1,12 @@
 using System;
+using System.Linq;
+
 using Server;
 using Server.Spells;
 using Server.Network;
 using Server.Mobiles;
 using Server.Items;
 using Server.Spells.Spellweaving;
-
-/*"Summon Reaper" with 120 Spellweaving/120 Meditation summons a stationary Reaper that has 603 Health/180 Stam/200 Mana, 
- * 650 STR/180 DEX/200 INT, Resists on this one are 70/15/18/100/69, it deals 80% Physical/20% Poison Damage with 16-20 
- * Base Damage and GM Wrest/GM Tact/GM Resist/GM Anat, no Magery skills. It does cast some Spellweaving spells though,
- * and it has a damage aura, plus it can do Dismount. It did 20-25 damage per hit to a player with max Resists. Arcane 
- * Focus Level does not affect it. 
- 
- The spellweaver summons a stationary reaper for a duration based on spellweaving skill, and arcane focus.  The strength 
- * of the summoned reaper is determined by spellweaving skill, arcane focus, and mastery level.*/
 
 namespace Server.Spells.SkillMasteries
 {
@@ -39,7 +32,7 @@ namespace Server.Spells.SkillMasteries
 
         public override void SendCastEffect()
         {
-            Caster.FixedEffect(0x37C4, 87, (int)(GetCastDelay().TotalSeconds * 28), 4, 3);
+            Caster.FixedEffect(0x37C4, 87, (int)(GetCastDelay().TotalSeconds * 28), 1371, 2);
         }
 
         public override bool CheckCast()
@@ -63,28 +56,41 @@ namespace Server.Spells.SkillMasteries
 
         public override void OnCast()
         {
-            if (CheckSequence())
+            Caster.Target = new MasteryTarget(this, 10, true, Server.Targeting.TargetFlags.None);
+        }
+
+        protected override void OnTarget(object o)
+        {
+            if (o is IPoint3D)
             {
-                TimeSpan duration = TimeSpan.FromSeconds((2 * (Caster.Skills[CastSkill].Fixed) + (ArcanistSpell.GetFocusLevel(Caster) * 200)) / 5);
-                var reaper = new SummonedReaper(Caster, this);
+                Map map = Caster.Map;
+                IPoint3D p = o as IPoint3D;
 
-                Point3D p = Caster.Location;
+                SpellHelper.GetSurfaceTop(ref p);
 
-                if (SpellHelper.FindValidSpawnLocation(Caster.Map, ref p, true))
+                if (map == null || !map.CanSpawnMobile(p.X, p.Y, p.Z))
                 {
-                    BaseCreature.Summon(reaper, false, Caster, p, 442, duration);
+                    this.Caster.SendLocalizedMessage(501942); // That location is blocked.
                 }
-                else
-                    reaper.Delete();
+                else if (SpellHelper.CheckTown(p, this.Caster) && this.CheckSequence())
+                {
+                    TimeSpan duration = TimeSpan.FromSeconds(((Caster.Skills[CastSkill].Value + (ArcanistSpell.GetFocusLevel(Caster) * 20)) / 240) * 75);
+                    BaseCreature.Summon(new SummonedReaper(Caster, this), false, this.Caster, new Point3D(p), 442, duration);
+                }
             }
-
-            FinishSequence();
         }
     }
 
     [CorpseName("a reapers corpse")]
     public class SummonedReaper : BaseCreature
     {
+        private int m_DispelDifficulty;
+
+        public override double DispelDifficulty { get { return m_DispelDifficulty; } }
+        public override double DispelFocus { get { return 45.0; } }
+
+        private long _NextAura;
+
         [Constructable]
         public SummonedReaper(Mobile caster, SummonReaperSpell spell)
             : base(AIType.AI_Spellweaving, FightMode.Closest, 10, 1, 0.2, 0.4)
@@ -133,10 +139,55 @@ namespace Server.Spells.SkillMasteries
                         PackItem(f);
                     }
                 });
+
+            m_DispelDifficulty = 91 + (int)((caster.Skills[SkillName.Spellweaving].Base * 83) / 5.2);
+
+            _NextAura = Core.TickCount + 3000;
+            SetWeaponAbility(WeaponAbility.WhirlwindAttack);
         }
 
         public override Poison PoisonImmune { get { return Poison.Greater; } }
         public override bool DisallowAllMoves { get { return true; } }
+        public override bool AlwaysMurderer { get { return true; } }
+
+        public override void OnThink()
+        {
+            base.OnThink();
+
+            if (_NextAura < Core.TickCount)
+            {
+                DoAura();
+
+                _NextAura = Core.TickCount + 2000;
+            }
+        }
+
+        private void DoAura()
+        {
+            DoEffects();
+
+            foreach (Mobile m in SpellHelper.AcquireIndirectTargets(this, this, Map, 4).OfType<Mobile>())
+            {
+                int damage = Utility.RandomMinMax(10, 20);
+
+                AOS.Damage( m, this, damage, 0, 0, 0, 100, 0, DamageType.SpellAOE);
+
+                m.RevealingAction();
+            }
+        }
+
+        private void DoEffects()
+        {
+            Server.Misc.Geometry.Circle2D(Location, Map, 4, (pnt, map) =>
+            {
+                Effects.SendLocationEffect(pnt, map, 0x3709, 0x14, 0x1, 0x8AF, 4);
+            });
+
+            Server.Misc.Geometry.Circle2D(Location, this.Map, 5, (pnt, map) =>
+            {
+                Effects.SendLocationEffect(pnt, map, 0x3709, 0x14, 0x1, 0x8AF, 4);
+            });
+        }
 
         public SummonedReaper(Serial serial)
             : base(serial)

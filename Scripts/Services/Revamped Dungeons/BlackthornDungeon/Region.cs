@@ -1,17 +1,14 @@
 using Server;
 using System;
-using System.Collections.Generic;
 using Server.Mobiles;
-using Server.Items;
-using Server.Gumps;
 using System.Linq;
-using Server.Engines.Points;
 using Server.Regions;
 using System.Xml;
 using Server.Spells;
 using Server.Spells.Chivalry;
 using Server.Spells.Ninjitsu;
 using Server.Spells.Bushido;
+using Server.Engines.Points;
 
 namespace Server.Engines.Blackthorn
 {
@@ -37,13 +34,16 @@ namespace Server.Engines.Blackthorn
 
         public void OnTick()
         {
-            foreach (Mobile m in this.GetEnumeratedMobiles().Where(m => m is PlayerMobile && m.AccessLevel == AccessLevel.Player))
+            if (!PointsSystem.FellowshipData.Enabled)
             {
-                if (m.Hidden)
-                    m.RevealingAction();
+                foreach (Mobile m in GetEnumeratedMobiles().Where(m => m is PlayerMobile && m.AccessLevel == AccessLevel.Player))
+                {
+                    if (m.Hidden)
+                        m.RevealingAction();
 
-                if (m.Y > 2575 && m.LastMoveTime + 120000 < Core.TickCount)
-                    MoveLocation(m);
+                    if (m.Y > 2575 && m.LastMoveTime + 120000 < Core.TickCount)
+                        MoveLocation(m);
+                }
             }
         }
 
@@ -62,7 +62,7 @@ namespace Server.Engines.Blackthorn
             }
 
             Effects.PlaySound(m.Location, m.Map, 0x231);
-            m.LocalOverheadMessage(Server.Network.MessageType.Regular, 0x22, 500855); // You are enveloped by a noxious gas cloud!                
+            m.LocalOverheadMessage(Network.MessageType.Regular, 0x22, 500855); // You are enveloped by a noxious gas cloud!                
             m.ApplyPoison(m, Poison.Lethal);
 
             IPooledEnumerable eable = this.Map.GetMobilesInRange(m.Location, 12);
@@ -133,6 +133,11 @@ namespace Server.Engines.Blackthorn
         {
             base.OnLocationChanged(m, oldLocation);
 
+            if (m is PlayerMobile && m.X <= 1525 && m.X >= 1520 && m.Y <= 1485 && oldLocation.Y > 1485)
+            {
+                Quests.AVisitToCastleBlackthornQuest.CheckLocation((PlayerMobile)m, oldLocation);
+            }
+
             if (m.AccessLevel > AccessLevel.Player)
                 return;
 
@@ -158,8 +163,6 @@ namespace Server.Engines.Blackthorn
 
             if (m is BaseCreature && ((BaseCreature)m).Controlled)
                 TryAutoStable((BaseCreature)m);
-
-            base.OnLocationChanged(m, oldLocation);
         }
 
         public void TryAutoStable(BaseCreature pet)
@@ -214,7 +217,7 @@ namespace Server.Engines.Blackthorn
             bc.MoveToWorld(p, this.Map);
 
             if(m != null)
-                m.SendLocalizedMessage(1153050, bc.Name); // Pets are not permitted in this location. Your pet named ~1_NAME~ has been sent to the stables.
+                m.SendLocalizedMessage(1153053, bc.Name); // Pets are not permitted in this area. Your pet named ~1_NAME~ could not be sent to the stables, so has been teleported outside the event area.
         }
 
         public override bool CheckTravel(Mobile traveller, Point3D p, TravelCheckType type)

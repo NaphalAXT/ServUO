@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Server;
@@ -31,6 +31,12 @@ namespace Server.Engines.CreatureStealing
             if (from.HasBeenStolen)
             {
                 thief.SendLocalizedMessage(1094948); //That creature has already been stolen from.  There is nothing left to steal.
+                return; 
+            }
+            
+            if (from.Controlled || from.Summoned)
+            {
+                thief.SendLocalizedMessage(502708); //You can't steal from this.
                 return; 
             }
 
@@ -91,7 +97,7 @@ namespace Server.Engines.CreatureStealing
 
                     if (chance >= Utility.Random(100))
                     {
-                        Item item = item = Activator.CreateInstance(SpecialItemList[Utility.Random(SpecialItemList.Length)]) as Item;
+                        Item item = Activator.CreateInstance(SpecialItemList[Utility.Random(SpecialItemList.Length)]) as Item;
 
                         if (item != null)
                         {
@@ -160,9 +166,9 @@ namespace Server.Engines.CreatureStealing
 
             if (level >= 40)
                 chance += 5;
-            else if (level >= 40)
+             else if (level >= 35) 
                 chance += 3;
-            else if (level >= 35)
+            else if (level >= 30)
                 chance += 2;
             else if (level >= 25)
                 chance += 1;

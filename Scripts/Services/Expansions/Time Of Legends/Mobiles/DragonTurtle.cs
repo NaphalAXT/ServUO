@@ -17,9 +17,6 @@ namespace Server.Mobiles
 
         public override ChampionSkullType SkullType { get { return ChampionSkullType.None; } }
 
-        private DateTime _NextScatter;
-        private DateTime _NextAttack;
-
         [Constructable]
 		public DragonTurtle() : base(AIType.AI_Mage)
 		{
@@ -50,11 +47,9 @@ namespace Server.Mobiles
 			
 			Fame = 11000;
 			Karma = -11000;
-		}
 
-        public override WeaponAbility GetWeaponAbility()
-        {
-            return WeaponAbility.Dismount;
+            SetWeaponAbility(WeaponAbility.Dismount);
+            SetSpecialAbility(SpecialAbility.DragonBreath);
         }
 
 		public override void GenerateLoot()
@@ -65,7 +60,6 @@ namespace Server.Mobiles
 		public override int Meat{ get{ return 1; } }
 		public override int Hides{ get{ return 33; } }
         public override FoodType FavoriteFood { get { return FoodType.FruitsAndVegies; } }
-        public override bool HasBreath { get { return true; } }
         public override bool TeleportsTo { get { return true; } }
         public override TimeSpan TeleportDuration { get { return TimeSpan.FromSeconds(30); } }
         public override int TeleportRange { get { return 10; } }
@@ -180,7 +174,7 @@ namespace Server.Mobiles
                             if (d == Direction.Up)
                                 d = Direction.North;
                             else
-                                d = d++;
+                                d += 1;
 
                             Movement.Movement.Offset(d, ref x, ref y);
                         }

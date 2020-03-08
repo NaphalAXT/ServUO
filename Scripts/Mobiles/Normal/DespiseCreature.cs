@@ -77,6 +77,9 @@ namespace Server.Engines.Despise
                 if (m_Progress >= m_Power)
                 {
                     Power++;
+
+                    IncreaseResists();
+
                     m_Progress = 0;
                 }
 
@@ -85,13 +88,13 @@ namespace Server.Engines.Despise
             }
         }
 
-        public virtual int TightLeashLength { get { return 2; } }
-        public virtual int ShortLeashLength { get { return 5; } }
-        public virtual int LongLeashLength { get { return 12; } }
+        public virtual int TightLeashLength { get { return 1; } }
+        public virtual int ShortLeashLength { get { return 1; } }
+        public virtual int LongLeashLength { get { return 10; } }
 
         public virtual int StatRatio { get { return Utility.RandomMinMax(35, 60); } }
 
-        public virtual double SkillStart { get { return Utility.RandomMinMax(35, 50); } }
+        public virtual double SkillStart { get { return Utility.RandomMinMax(80.0, 130.0); } }
         public virtual double SkillMax { get { return m_MaxPower == 15 ? 130.0 : 110.0; } }
 
         public virtual int StrStart { get { return Utility.RandomMinMax(91, 100); } }
@@ -130,6 +133,27 @@ namespace Server.Engines.Despise
         public override bool ForceNotoriety { get { return true; } }
         public override bool IsBondable { get { return false; } }
         public override bool GivesFameAndKarmaAward { get { return false; } }
+        public override bool CanAutoStable { get { return false; } }
+
+        public override Poison GetHitPoison()
+        {
+            return null;
+        }
+
+        public override TimeSpan ReacquireDelay
+        { 
+            get
+            {
+                if (!Controlled || m_Orb == null || m_Orb.Aggression == Aggression.Defensive)
+                {
+                    return TimeSpan.FromSeconds(10.0);
+                }
+                else
+                {
+                    return TimeSpan.FromSeconds(Utility.RandomMinMax(4, 6));
+                }
+            } 
+        }
 
         public DespiseCreature(AIType ai, FightMode fightmode)
             : base(ai, fightmode, 10, 1, .2, .4)
@@ -144,6 +168,29 @@ namespace Server.Engines.Despise
             SetHits(HitsStart);
             SetStam(StamStart);
             SetMana(ManaStart);
+
+            SetDamageType(ResistanceType.Physical, 100);
+
+            SetResistance(ResistanceType.Physical, 5, 50);
+            SetResistance(ResistanceType.Fire, 5, 50);
+            SetResistance(ResistanceType.Cold, 5, 50);
+            SetResistance(ResistanceType.Poison, 5, 50);
+            SetResistance(ResistanceType.Energy, 5, 50);
+
+            SetSkill(SkillName.Wrestling, SkillStart);
+            SetSkill(SkillName.Tactics, SkillStart);
+            SetSkill(SkillName.MagicResist, SkillStart);
+            SetSkill(SkillName.Anatomy, SkillStart);
+            SetSkill(SkillName.Poisoning, SkillStart);
+            SetSkill(SkillName.DetectHidden, SkillStart);
+            SetSkill(SkillName.Parry, SkillStart);
+            SetSkill(SkillName.Magery, SkillStart);
+            SetSkill(SkillName.EvalInt, SkillStart);
+            SetSkill(SkillName.Meditation, SkillStart);
+            SetSkill(SkillName.Necromancy, SkillStart);
+            SetSkill(SkillName.SpiritSpeak, SkillStart);
+            SetSkill(SkillName.Focus, SkillStart);
+            SetSkill(SkillName.Discordance, SkillStart);
 
             NoLootOnDeath = true;
 
@@ -236,9 +283,8 @@ namespace Server.Engines.Despise
 
             switch (m_Orb.LeashLength)
             {
-                case LeashLength.Tight: return TightLeashLength;
-                case LeashLength.Short: return ShortLeashLength;
                 default:
+                case LeashLength.Short: return ShortLeashLength;
                 case LeashLength.Long: return LongLeashLength;
             }
         }
@@ -321,6 +367,15 @@ namespace Server.Engines.Despise
 
             FixedEffect(0x373A, 10, 30);
             PlaySound(0x209);
+        }
+
+        private void IncreaseResists()
+        {
+            SetResistance(ResistanceType.Physical, Math.Min(80, PhysicalResistanceSeed + Utility.RandomMinMax(5, 15)));
+            SetResistance(ResistanceType.Fire, Math.Min(80, FireResistSeed + Utility.RandomMinMax(5, 15)));
+            SetResistance(ResistanceType.Cold, Math.Min(80, ColdResistSeed + Utility.RandomMinMax(5, 15)));
+            SetResistance(ResistanceType.Poison, Math.Min(80, PoisonResistSeed + Utility.RandomMinMax(5, 15)));
+            SetResistance(ResistanceType.Energy, Math.Min(80, EnergyResistSeed + Utility.RandomMinMax(5, 15)));
         }
 
         public static int GetPowerLabel(int power)

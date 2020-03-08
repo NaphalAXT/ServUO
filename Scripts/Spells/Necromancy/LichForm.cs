@@ -21,7 +21,7 @@ namespace Server.Spells.Necromancy
         {
             get
             {
-                return TimeSpan.FromSeconds(2.0);
+                return TimeSpan.FromSeconds(2.25);
             }
         }
         public override double RequiredSkill
@@ -70,7 +70,7 @@ namespace Server.Spells.Necromancy
         {
             get
             {
-                return 2.5;
+                return 2;
             }
         }
         public override void DoEffect(Mobile m)
@@ -83,8 +83,7 @@ namespace Server.Spells.Necromancy
         }
         public override void OnTick(Mobile m)
         {
-            if(!Core.ML)
-                --m.Hits;
+            --m.Hits;
         }
 
         public override void RemoveEffect(Mobile m)

@@ -4,7 +4,7 @@ using Server.Network;
 
 namespace Server.Items
 {
-    public abstract class LockableContainer : TrapableContainer, ILockable, ILockpickable, IShipwreckedItem, IResource
+    public abstract class LockableContainer : TrapableContainer, ILockable, ILockpickable, IShipwreckedItem, IResource, IQuality
     {
         private bool m_Locked;
         private int m_LockLevel, m_MaxLockLevel, m_RequiredSkill;
@@ -413,10 +413,8 @@ namespace Server.Items
             }
         }
 
-        public override void GetProperties(ObjectPropertyList list)
+        public override void AddCraftedProperties(ObjectPropertyList list)
         {
-            base.GetProperties(list);
-
             if (m_PlayerConstructed && m_Crafter != null)
             {
                 list.Add(1050043, m_Crafter.Name); // crafted by ~1_NAME~
@@ -427,7 +425,7 @@ namespace Server.Items
                 list.Add(1060636); // Exceptional
             }
 
-            if (m_Resource > CraftResource.Iron)
+            if (m_Resource > CraftResource.Iron && !CraftResources.IsStandard(m_Resource))
             {
                 list.Add(1114057, "#{0}", CraftResources.GetLocalizationNumber(m_Resource)); // ~1_val~
             }
@@ -453,7 +451,7 @@ namespace Server.Items
 
         #region ICraftable Members
 
-        public int OnCraft(int quality, bool makersMark, Mobile from, CraftSystem craftSystem, Type typeRes, BaseTool tool, CraftItem craftItem, int resHue)
+        public int OnCraft(int quality, bool makersMark, Mobile from, CraftSystem craftSystem, Type typeRes, ITool tool, CraftItem craftItem, int resHue)
         {
             Quality = (ItemQuality)quality;
 
@@ -504,7 +502,7 @@ namespace Server.Items
                 from.SendLocalizedMessage(500637); // Your tinker skill was insufficient to make the item lockable.
             }
 
-            return 1;
+            return quality;
         }
 
         #endregion

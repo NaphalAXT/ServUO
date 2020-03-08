@@ -138,6 +138,7 @@ namespace Server.Items
         }
     }
 
+    [Furniture]
     [DynamicFliping]
     [Flipable(0x1218, 0x1219, 0x121A, 0x121B)]
     public class StoneChair : Item
@@ -169,6 +170,7 @@ namespace Server.Items
         }
     }
 
+    [Furniture]
     [DynamicFliping]
     [Flipable(0x2DE3, 0x2DE4, 0x2DE5, 0x2DE6)]
     public class OrnateElvenChair : CraftableFurniture
@@ -200,6 +202,7 @@ namespace Server.Items
         }
     }
 
+    [Furniture]
     [DynamicFliping]
     [Flipable(0x2DEB, 0x2DEC, 0x2DED, 0x2DEE)]
     public class BigElvenChair : CraftableFurniture
@@ -230,6 +233,7 @@ namespace Server.Items
         }
     }
 
+    [Furniture]
     [DynamicFliping]
     [Flipable(0x2DF5, 0x2DF6)]
     public class ElvenReadingChair : CraftableFurniture
@@ -262,7 +266,7 @@ namespace Server.Items
 
     [Furniture]
     [Flipable(0x4023, 0x4024)]
-    public class TerMurStyleChair : Item
+    public class TerMurStyleChair : CraftableFurniture
     {
         public override int LabelNumber { get { return 1095291; } } // Ter-Mur style chair
 

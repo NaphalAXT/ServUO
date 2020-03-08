@@ -1,9 +1,3 @@
-#region Header
-// **********
-// ServUO - GuardAI.cs
-// **********
-#endregion
-
 #region References
 using System;
 using System.Collections.Generic;
@@ -268,7 +262,7 @@ namespace Server.Factions
 			if (buff != null)
 				offset += buff.Offset;
 			if (curse != null)
-				offset += buff.Offset;
+				offset += curse.Offset;
 
 			return offset;
 		}
@@ -401,7 +395,9 @@ namespace Server.Factions
 						actPrio = inactPrio = m_Mobile.GetDistanceToSqrt(comb);
 					}
 
-					foreach (Mobile m in m_Mobile.GetMobilesInRange(12))
+                    IPooledEnumerable eable = m_Mobile.GetMobilesInRange(12);
+
+					foreach (Mobile m in eable)
 					{
 						if (m != m_Mobile && CanDispel(m))
 						{
@@ -420,6 +416,8 @@ namespace Server.Factions
 							}
 						}
 					}
+
+                    eable.Free();
 
 					return active != null ? active : inactive;
 				}
@@ -701,7 +699,7 @@ namespace Server.Factions
 					if (IsAllowed(GuardAI.Magic) && ((m_Guard.Hits * 100) / Math.Max(m_Guard.HitsMax, 1)) < 10 &&
 						m_Guard.Home != Point3D.Zero && !Utility.InRange(m_Guard.Location, m_Guard.Home, 15) && m_Guard.Mana >= 11)
 					{
-						spell = new RecallSpell(m_Guard, null, new RunebookEntry(m_Guard.Home, m_Guard.Map, "Guard's Home", null), null);
+						spell = new RecallSpell(m_Guard, null, new RunebookEntry(m_Guard.Home, m_Guard.Map, "Guard's Home", null, RecallRuneType.Normal), null);
 					}
 					else if (IsAllowed(GuardAI.Bless))
 					{

@@ -1,12 +1,8 @@
-#region Header
-// **********
-// ServUO - BaseFamiliar.cs
-// **********
-#endregion
-
 #region References
 using System.Collections.Generic;
 using System;
+using System.Linq;
+
 using Server.ContextMenus;
 using Server.Items;
 using Server.Spells.Necromancy;
@@ -54,6 +50,7 @@ namespace Server.Mobiles
 		public override Poison PoisonImmune { get { return Poison.Lethal; } }
 		public override bool Commandable { get { return false; } }
 		public override bool PlayerRangeSensitive { get { return false; } }
+        public override bool CanDetectHidden { get { return false; } }
 
         public virtual bool RangeCheck()
         {
@@ -83,9 +80,9 @@ namespace Server.Mobiles
                 m_SeperationStart = DateTime.MinValue;
             }
 
-            int range = (RangeHome / 2);
+            int range = 4;
 
-            if (!InRange(ControlMaster.Location, RangeHome))
+            if (!InRange(ControlMaster.Location, RangeHome) && InLOS(ControlMaster))
             {
                 Point3D loc = Point3D.Zero;
 
@@ -114,6 +111,8 @@ namespace Server.Mobiles
                         SetLocation(loc, true);
                     }
                 }
+
+                return false;
             }
 
             return true;
@@ -121,12 +120,12 @@ namespace Server.Mobiles
 
 		public override void OnThink()
 		{
-			Mobile master = ControlMaster;
-
-			if (Deleted)
+            if (Deleted || Map == null)
 			{
 				return;
 			}
+
+            Mobile master = ControlMaster;
 
 			if (master == null || master.Deleted)
 			{
@@ -161,7 +160,7 @@ namespace Server.Mobiles
 
                                     Point2D p = new Point2D(x, y);
 
-                                    if (InRange(p, 1) && master.InRange(p, 1))
+                                    if (InRange(p, 1) && master.InRange(p, 1) && Map != null)
                                     {
                                         CurrentSpeed = .01;
                                         AIObject.MoveTo(new Point3D(x, y, Map.GetAverageZ(x, y)), false, 0);
@@ -239,6 +238,14 @@ namespace Server.Mobiles
             if (check != null && check is BaseFamiliar && check.Weapon != null && check.InRange(defender.Location, check.Weapon.MaxRange))
             {
                 check.Weapon.OnSwing(check, defender);
+            }
+
+            if (attacker is PlayerMobile)
+            {
+                foreach (var ts in ((PlayerMobile)attacker).AllFollowers.Where(m => m is BaseTalismanSummon && m.InRange(defender.Location, m.Weapon.MaxRange)))
+                {
+                    ts.Weapon.OnSwing(ts, defender);
+                }
             }
         }
 

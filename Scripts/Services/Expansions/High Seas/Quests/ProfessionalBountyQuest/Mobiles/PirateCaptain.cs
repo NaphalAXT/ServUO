@@ -1,4 +1,4 @@
-﻿using Server;
+using Server;
 using System;
 using Server.Items;
 using Server.Multis;
@@ -33,7 +33,7 @@ namespace Server.Mobiles
 
         public override bool AlwaysMurderer { get { return true; } }
         public override bool Commandable { get { return false; } }
-
+        
         #region Bounty Quest
         private ProfessionalBountyQuest m_Quest;
         private bool m_IsCaught;
@@ -64,8 +64,6 @@ namespace Server.Mobiles
             Hue = Race.RandomSkinHue();
 
             Body = Female ? 0x191 : 0x190;
-
-            AddItem(new ShortPants(Utility.RandomNeutralHue()));
 
             SetStr(500, 750);
             SetDex(125, 175);
@@ -113,6 +111,9 @@ namespace Server.Mobiles
 
             Fame = 22000;
             Karma = -22000;
+
+            if (IsSoulboundEnemies)
+                IsSoulbound = true;
         }
 
         public static int GetRandomShirtHue()

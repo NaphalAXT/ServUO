@@ -63,9 +63,13 @@ namespace Server.Engines.Despise
 			if(m is DespiseBoss)
 			{
 				DespiseController controller = DespiseController.Instance;
-				
-				if(controller != null && controller.Boss == m)
-					controller.OnBossSlain();
+
+                if (controller != null && controller.Boss == m)
+                {
+                    Server.Engines.Quests.WhisperingWithWispsQuest.OnBossSlain((DespiseBoss)m);
+
+                    controller.OnBossSlain();
+                }
 			}
 			else if(m is PlayerMobile && m_LowerLevel)
 			{
@@ -158,13 +162,13 @@ namespace Server.Engines.Despise
                                 topdam.PlaySound(0x209);
                             }
 
-                            if (master != null && master.Backpack != null)
+                            if (master != null && master.Map != null && master.Map != Map.Internal && master.Backpack != null)
                             {
                                 var heart = new PutridHeart(Utility.RandomMinMax(dc.Power * 8, dc.Power * 10));
 
                                 if (!master.Backpack.TryDropItem(master, heart, false))
                                 {
-                                    heart.MoveToWorld(master.Location, heart.Map);
+                                    heart.MoveToWorld(master.Location, master.Map);
                                 }
                             }
                         }

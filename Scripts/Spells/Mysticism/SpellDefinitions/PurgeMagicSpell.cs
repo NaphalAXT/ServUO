@@ -29,31 +29,31 @@ namespace Server.Spells.Mysticism
         Bless
     }
 
-	public class PurgeMagicSpell : MysticSpell
-	{
+    public class PurgeMagicSpell : MysticSpell
+    {
         public override SpellCircle Circle { get { return SpellCircle.Second; } }
 
-		private static SpellInfo m_Info = new SpellInfo(
-				"Purge", "An Ort Sanct ",
-				230,
-				9022,
-				Reagent.Garlic,
-				Reagent.MandrakeRoot,
-				Reagent.SulfurousAsh,
-				Reagent.FertileDirt
-			);
+        private static SpellInfo m_Info = new SpellInfo(
+                "Purge", "An Ort Sanct ",
+                230,
+                9022,
+                Reagent.Garlic,
+                Reagent.MandrakeRoot,
+                Reagent.SulfurousAsh,
+                Reagent.FertileDirt
+            );
 
-		public PurgeMagicSpell( Mobile caster, Item scroll ) : base( caster, scroll, m_Info )
-		{
-		}
+        public PurgeMagicSpell(Mobile caster, Item scroll) : base(caster, scroll, m_Info)
+        {
+        }
 
-		public override void OnCast()
-		{
-			Caster.Target = new MysticSpellTarget( this, TargetFlags.Harmful );
-		}
+        public override void OnCast()
+        {
+            Caster.Target = new InternalTarget(this);
+        }
 
-		public override void OnTarget( Object o )
-		{
+        public void OnTarget(object o)
+        {
             Mobile target = o as Mobile;
 
             if (target == null)
@@ -76,6 +76,8 @@ namespace Server.Spells.Mysticism
                 }
                 else
                 {
+                    SpellHelper.CheckReflect((int)Circle, Caster, ref target);
+
                     Caster.PlaySound(0x655);
                     Effects.SendLocationParticles(EffectItem.Create(target.Location, target.Map, EffectItem.DefaultDuration), 0x3728, 1, 13, 0x834, 0, 0x13B2, 0);
 
@@ -110,12 +112,12 @@ namespace Server.Spells.Mysticism
                                 break;
                             case BuffType.DexBonus:
                                 arg = "dexterity bonus";
-								target.RemoveStatMod("[Magic] Dex Buff");
+                                target.RemoveStatMod("[Magic] Dex Buff");
                                 BuffInfo.RemoveBuff(target, BuffIcon.Agility);
                                 break;
                             case BuffType.IntBonus:
                                 arg = "intelligence bonus";
-								target.RemoveStatMod("[Magic] Int Buff");
+                                target.RemoveStatMod("[Magic] Int Buff");
                                 BuffInfo.RemoveBuff(target, BuffIcon.Cunning);
                                 break;
                             case BuffType.BarrabHemolymph:
@@ -161,7 +163,7 @@ namespace Server.Spells.Mysticism
             }
 
             FinishSequence();
-		}
+        }
 
         public BuffType GetRandomBuff(Mobile target)
         {
@@ -227,7 +229,7 @@ namespace Server.Spells.Mysticism
             }
         }
 
-        public static void RemoveCurse(Mobile from)
+        public static void RemoveCurse(Mobile from, Mobile caster)
         {
             if (m_CurseTable.ContainsKey(from))
             {
@@ -244,7 +246,7 @@ namespace Server.Spells.Mysticism
 
                     m_CurseTable.Remove(from);
 
-                    SpellHelper.Damage(TimeSpan.Zero, from, damage, 0, 0, 0, 0, 0, 100, 0);
+                    AOS.Damage(from, caster, damage, 0, 0, 0, 0, 0, 100, 0);
                 }
             }
 
@@ -254,7 +256,7 @@ namespace Server.Spells.Mysticism
         public static void OnMobileDoDamage(Mobile from)
         {
             if (from != null && m_CurseTable.ContainsKey(from))
-                RemoveCurse(from);
+                RemoveCurse(from, m_CurseTable[from].Caster);
         }
 
         public static bool IsUnderCurseEffects(Mobile from)
@@ -298,8 +300,43 @@ namespace Server.Spells.Mysticism
 
             protected override void OnTick()
             {
-                PurgeMagicSpell.RemoveCurse(m_Mobile);
+                PurgeMagicSpell.RemoveCurse(m_Mobile, m_Caster);
             }
         }
-	}
+
+        public class InternalTarget : Target
+        {
+            public PurgeMagicSpell Owner { get; set; }
+
+            public InternalTarget(PurgeMagicSpell owner)
+                : this(owner, false)
+            {
+            }
+
+            public InternalTarget(PurgeMagicSpell owner, bool allowland)
+                : base(12, allowland, TargetFlags.Harmful)
+            {
+                Owner = owner;
+            }
+
+            protected override void OnTarget(Mobile from, object o)
+            {
+                if (o == null)
+                    return;
+
+                if (!from.CanSee(o))
+                    from.SendLocalizedMessage(500237); // Target can not be seen.
+                else
+                {
+                    SpellHelper.Turn(from, o);
+                    Owner.OnTarget(o);
+                }
+            }
+
+            protected override void OnTargetFinish(Mobile from)
+            {
+                Owner.FinishSequence();
+            }
+        }
+    }
 }

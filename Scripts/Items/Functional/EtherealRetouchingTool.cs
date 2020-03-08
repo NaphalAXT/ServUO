@@ -58,11 +58,11 @@ namespace Server.Items
 
             protected override void OnTarget(Mobile from, object targeted)
             {
-                if (targeted is EtherealMount)
+                if (m_Tool.IsChildOf(from.Backpack) && targeted is EtherealMount)
                 {
                     EtherealMount mount = targeted as EtherealMount;
 
-                    if (mount is GMEthereal)
+                    if (mount is GMEthereal || mount is EtherealWarBoar)
                     {
                         from.SendMessage("You cannot use it on this!");
                     }

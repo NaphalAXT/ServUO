@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Server;
 using Server.Mobiles;
 using Server.ContextMenus;
@@ -22,6 +22,8 @@ namespace Server.Items
 
         public override int LabelNumber { get { return 1071498; } } // Undertaker's Staff
         public override bool IsArtifact { get { return true; } }
+		public override int InitMinHits { get { return 255; } }
+        public override int InitMaxHits { get { return 255; } }
 
         [Constructable]
         public UndertakersStaff()
@@ -154,7 +156,7 @@ namespace Server.Items
             {
                 List<Corpse> copy = new List<Corpse>(corpses);
 
-                foreach (var c in corpses)
+                foreach (var c in copy)
                 {
                     bool remove = false;
 
@@ -281,7 +283,7 @@ namespace Server.Items
                         list.Add(kvp.Key);
                 }
 
-                if (list.Count >= 15)
+                if (list != null && list.Count >= 15)
                     break;
             }
 

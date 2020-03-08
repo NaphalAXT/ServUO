@@ -5,6 +5,7 @@ using Server.Targeting;
 using Server.Engines.Quests;
 using Server.Engines.Quests.Hag;
 using Server.Mobiles;
+using System.Linq;
 
 namespace Server.Engines.Harvest
 {
@@ -155,11 +156,10 @@ namespace Server.Engines.Harvest
             HarvestResource resource = MutateResource(from, tool, def, map, loc, vein, primary, fallback);
 
             double skillBase = from.Skills[def.Skill].Base;
-            double skillValue = from.Skills[def.Skill].Value;
 
             Type type = null;
 
-            if (skillBase >= resource.ReqSkill && from.CheckSkill(def.Skill, resource.MinSkill, resource.MaxSkill))
+            if(CheckHarvestSkill(map, loc, from, resource, def))
             {
                 type = GetResourceType(from, tool, def, map, loc, resource);
 
@@ -178,6 +178,12 @@ namespace Server.Engines.Harvest
                     {
                         int amount = def.ConsumedPerHarvest;
                         int feluccaAmount = def.ConsumedPerFeluccaHarvest;
+
+                        if (item is BaseGranite)
+                            feluccaAmount = 3;
+
+                        Caddellite.OnHarvest(from, tool, this, item);
+
                         //The whole harvest system is kludgy and I'm sure this is just adding to it.
                         if (item.Stackable)
                         {
@@ -200,8 +206,10 @@ namespace Server.Engines.Harvest
                             item.Amount += WoodsmansTalisman.CheckHarvest(from, type, this);
                         }
 
-                        bank.Consume(amount, from);
-						EventSink.InvokeResourceHarvestSuccess(new ResourceHarvestSuccessEventArgs(from, tool,item, this));
+                        if (from.AccessLevel == AccessLevel.Player)
+                        {
+                            bank.Consume(amount, from);
+                        }
 
                         if (Give(from, item, def.PlaceAtFeetIfFull))
                         {
@@ -214,23 +222,27 @@ namespace Server.Engines.Harvest
                         }
 
                         BonusHarvestResource bonus = def.GetBonusResource();
+                        Item bonusItem = null;
 
                         if (bonus != null && bonus.Type != null && skillBase >= bonus.ReqSkill)
                         {
 							if (bonus.RequiredMap == null || bonus.RequiredMap == from.Map)
 							{
-								Item bonusItem = Construct(bonus.Type, from, tool);
+							    bonusItem = Construct(bonus.Type, from, tool);
+                                Caddellite.OnHarvest(from, tool, this, bonusItem);
 
-								if (Give(from, bonusItem, true))	//Bonuses always allow placing at feet, even if pack is full irregrdless of def
+                                if (Give(from, bonusItem, true))	//Bonuses always allow placing at feet, even if pack is full irregrdless of def
 								{
-									bonus.SendSuccessTo(from);
+                                    bonus.SendSuccessTo(from);
 								}
 								else
 								{
-									item.Delete();
+                                    bonusItem.Delete();
 								}
 							}
                         }
+
+                        EventSink.InvokeResourceHarvestSuccess(new ResourceHarvestSuccessEventArgs(from, tool, item, bonusItem, this));
                     }
 
                     #region High Seas
@@ -260,6 +272,11 @@ namespace Server.Engines.Harvest
                 def.SendMessageTo(from, def.FailMessage);
 
             OnHarvestFinished(from, tool, def, vein, bank, resource, toHarvest);
+        }
+
+        public virtual bool CheckHarvestSkill(Map map, Point3D loc, Mobile from, HarvestResource resource, HarvestDefinition def)
+        {
+            return from.Skills[def.Skill].Value >= resource.ReqSkill && from.CheckSkill(def.Skill, resource.MinSkill, resource.MaxSkill);
         }
 
         public virtual void OnToolUsed(Mobile from, Item tool, bool caughtSomething)
@@ -312,13 +329,17 @@ namespace Server.Engines.Harvest
 
             Map map = m.Map;
 
-            if (map == null)
+            if (map == null || map == Map.Internal)
                 return false;
 
             List<Item> atFeet = new List<Item>();
 
-            foreach (Item obj in m.GetItemsInRange(0))
+            IPooledEnumerable eable = m.GetItemsInRange(0);
+
+            foreach (Item obj in eable)
                 atFeet.Add(obj);
+
+            eable.Free();
 
             for (int i = 0; i < atFeet.Count; ++i)
             {
@@ -327,6 +348,8 @@ namespace Server.Engines.Harvest
                 if (check.StackWith(m, item, false))
                     return true;
             }
+
+            ColUtility.Free(atFeet);
 
             item.MoveToWorld(m.Location, map);
             return true;
@@ -421,10 +444,7 @@ namespace Server.Engines.Harvest
             {
                 if (Core.SA)
                 {
-                    if (Utility.RandomList(def.EffectActions) != 0)
-                    {
-                        from.Animate(AnimationType.Attack, Utility.RandomList(def.EffectActions));
-                    }
+                    from.Animate(AnimationType.Attack, Utility.RandomList(def.EffectActions));
                 }
                 else
                 {
@@ -744,7 +764,7 @@ namespace Server
         void OnChop(Mobile from);
     }
 
-    public interface IHarvestTool
+    public interface IHarvestTool : IEntity
     {
         Engines.Harvest.HarvestSystem HarvestSystem { get; }
     }
@@ -754,11 +774,42 @@ namespace Server
     {
         public FurnitureAttribute()
         {
+        }        
+
+        private static bool IsNotChoppables(Item item)
+        {
+            return _NotChoppables.Any(t => t == item.GetType());
         }
+
+        private static Type[] _NotChoppables = new Type[]
+        {
+            typeof(CommodityDeedBox), typeof(ChinaCabinet), typeof(PieSafe), typeof(AcademicBookCase), typeof(JewelryBox),
+            typeof(WoodenBookcase), typeof(Countertop), typeof(Mailbox)
+        };
 
         public static bool Check(Item item)
         {
-            return (item != null && item.GetType().IsDefined(typeof(FurnitureAttribute), false));
+            if (item == null)
+            {
+                return false;
+            }
+			
+			if (IsNotChoppables(item))
+			{
+				return false;
+			}
+
+            if (item.GetType().IsDefined(typeof(FurnitureAttribute), false))
+            {
+                return true;
+            }
+
+            if (item is AddonComponent && ((AddonComponent)item).Addon != null && ((AddonComponent)item).Addon.GetType().IsDefined(typeof(FurnitureAttribute), false))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }

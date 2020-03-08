@@ -1,4 +1,4 @@
-﻿using Server;
+using Server;
 using System;
 using Server.Items;
 using Server.Multis;
@@ -26,8 +26,7 @@ namespace Server.Mobiles
             }
             return null;
         }
-
-
+        
         [Constructable]
         public MerchantCrew()
             : base(AIType.AI_Paladin, FightMode.Aggressor, 10, 1, .2, .4)
@@ -94,12 +93,14 @@ namespace Server.Mobiles
 
             AddItem(new TricorneHat());
             AddItem(new FancyShirt());
-            AddItem(new ShortPants());
             AddItem(new Boots(Utility.RandomNeutralHue()));
             AddItem(new GoldEarrings());
 
             Fame = 8000;
             Karma = 8000;
+
+            if (IsSoulboundEnemies)
+                IsSoulbound = true;
         }
 
         public override void GenerateLoot()

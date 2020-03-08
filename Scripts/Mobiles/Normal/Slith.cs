@@ -33,6 +33,8 @@ namespace Server.Mobiles
             Tamable = true;
             ControlSlots = 1;
             MinTameSkill = 80.7;
+
+            SetSpecialAbility(SpecialAbility.DragonBreath);
         }
 
         public Slith(Serial serial) : base(serial)
@@ -41,17 +43,18 @@ namespace Server.Mobiles
 
         public override int DragonBlood { get { return 8; } }
 
-        public override bool HasBreath
+		public override int TreasureMapLevel
         {
-            get { return true; }
-        } // fire breath enabled
-
+            get
+            {
+                return 2;
+            }
+        }
         public override int Meat
         {
             get { return 6; }
         }
 
-        // public override int DragonBlood { get { return 6; } }
         public override int Hides
         {
             get { return 10; }
@@ -66,12 +69,12 @@ namespace Server.Mobiles
         {
             base.OnDeath(c);
 
-            if (Utility.RandomDouble() < 0.05)
+            if (!Controlled && Utility.RandomDouble() < 0.05)
             {
                 c.DropItem(new SlithEye());
             }
 
-            if (Utility.RandomDouble() < 0.25)
+            if (!Controlled && Utility.RandomDouble() < 0.25)
             {
                 switch (Utility.Random(2))
                 {

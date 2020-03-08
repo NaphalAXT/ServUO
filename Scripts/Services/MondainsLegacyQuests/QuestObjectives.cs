@@ -115,6 +115,12 @@ namespace Server.Engines.Quests
                 return CurProgress == -1;
             }
         }
+
+        public virtual object ObjectiveDescription
+        {
+            get { return null; }
+        }
+
         public virtual void Complete()
         {
             CurProgress = MaxProgress;
@@ -337,6 +343,8 @@ namespace Server.Engines.Quests
         private Type m_Obtain;
         private string m_Name;
         private int m_Image;
+        private int m_Hue;
+
         public ObtainObjective(Type obtain, string name, int amount)
             : this(obtain, name, amount, 0, 0)
         {
@@ -348,11 +356,17 @@ namespace Server.Engines.Quests
         }
 
         public ObtainObjective(Type obtain, string name, int amount, int image, int seconds)
+            : this(obtain, name, amount, image, seconds, 0)
+        {
+        }
+
+        public ObtainObjective(Type obtain, string name, int amount, int image, int seconds, int hue)
             : base(amount, seconds)
         { 
             m_Obtain = obtain;
             m_Name = name;
             m_Image = image;
+            m_Hue = hue;
         }
 
         public Type Obtain
@@ -388,6 +402,17 @@ namespace Server.Engines.Quests
                 m_Image = value;
             }
         }
+        public int Hue
+        {
+            get
+            {
+                return m_Hue;
+            }
+            set
+            {
+                m_Hue = value;
+            }
+        }
         public override bool Update(object obj)
         { 
             if (obj is Item)
@@ -402,6 +427,8 @@ namespace Server.Engines.Quests
 							
                         obtained.QuestItem = true;
                         Quest.Owner.SendLocalizedMessage(1072353); // You set the item to Quest Item status
+
+                        Quest.OnObjectiveUpdate(obtained);
                     }
                     else
                     {
@@ -621,11 +648,18 @@ namespace Server.Engines.Quests
 
     public class EscortObjective : BaseObjective
     {
-        private Region m_Region;
-        private int m_Fame;
-        private int m_Compassion;
+        public Region Region { get; set; }
+        public int Fame { get; set; }
+        public int Compassion { get; set; }
+        public int Label { get; set; }
+
         public EscortObjective(string region)
-            : this(region, 10, 200, 0)
+            : this(region, 10, 200, 0, 0)
+        {
+        }
+
+        public EscortObjective(int label, string region)
+            : this(region, 10, 200, 0, label)
         {
         }
 
@@ -635,54 +669,21 @@ namespace Server.Engines.Quests
         }
 
         public EscortObjective(string region, int fame, int compassion)
-            : this(region, fame, compassion, 0)
+            : this(region, fame, compassion, 0, 0)
         {
         }
 
-        public EscortObjective(string region, int fame, int compassion, int seconds)
+        public EscortObjective(string region, int fame, int compassion, int seconds, int label)
             : base(1, seconds)
         {
-            m_Region = QuestHelper.FindRegion(region);
-            m_Fame = fame;
-            m_Compassion = compassion;
+            Region = QuestHelper.FindRegion(region);
+            Fame = fame;
+            Compassion = compassion;
+            Label = label;
 
-            if (m_Region == null)
+            if (Region == null)
                 Console.WriteLine(String.Format("Invalid region name ('{0}') in '{1}' objective!", region, GetType()));
-        }
-
-        public Region Region
-        { 
-            get
-            {
-                return m_Region;
-            }
-            set
-            {
-                m_Region = value;
-            }
-        }
-        public int Fame
-        {
-            get
-            {
-                return m_Fame;
-            }
-            set
-            {
-                m_Fame = value;
-            }
-        }
-        public int Compassion
-        {
-            get
-            {
-                return m_Compassion;
-            }
-            set
-            {
-                m_Compassion = value;
-            }
-        }
+        }        
 
         public override void OnCompleted()
         {

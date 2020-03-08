@@ -1,14 +1,10 @@
-#region Header
-// **********
-// ServUO - Container.cs
-// **********
-#endregion
-
 #region References
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+
 using Server.ContextMenus;
 using Server.Network;
 #endregion
@@ -16,41 +12,31 @@ using Server.Network;
 namespace Server.Items
 {
     public delegate void OnItemConsumed(Item item, int amount);
-
     public delegate int CheckItemGroup(Item a, Item b);
-
+    public delegate bool ResValidator(Item item);
     public delegate void ContainerSnoopHandler(Container cont, Mobile from);
 
     public class Container : Item
     {
         #region Enhanced Client Support
-
-        Dictionary<byte, Item> _Positions = new Dictionary<byte, Item>();
-
-        public virtual void SetPosition(byte pos, Item item)
+        public virtual void ValidateGridLocation(Item item)
         {
+			var pos = item.GridLocation;
+
             if (!IsFreePosition(pos))
             {
-                pos = GetNewPosition(pos);
-            }
-
-            if (item.GridLocation != pos)
-                item.GridLocation = pos;
-
-            _Positions[pos] = item;
-        }
-
-        public virtual void FreePosition(byte pos)
-        {
-            if (_Positions.ContainsKey(pos))
-            {
-                _Positions.Remove(pos);
+                item.GridLocation = GetNewPosition(pos);
             }
         }
 
         public virtual bool IsFreePosition(byte pos)
         {
-            return pos <= 0x7C && !_Positions.ContainsKey(pos);
+            if (pos < 0 || pos > 0x7C)
+            {
+                return false;
+            }
+
+			return Items.All(i => i.GridLocation != pos);
         }
 
         public virtual byte GetNewPosition(byte current)
@@ -58,15 +44,15 @@ namespace Server.Items
             int index = 0;
             byte next = (byte)(current + 1);
 
-            while (index < 0x7D)
+            while (++index < 0x7D)
             {
-                if (_Positions.ContainsKey(next))
+                if (!IsFreePosition(next))
                 {
                     if (next == 0x7C)
                     {
                         next = 0;
 
-                        if (!_Positions.ContainsKey(next))
+                        if (IsFreePosition(next))
                         {
                             return next;
                         }
@@ -77,11 +63,21 @@ namespace Server.Items
                     return next;
                 }
 
-                index++;
                 next++;
             }
 
             return 0;
+        }
+
+        public virtual void ValidatePositions()
+        {
+            foreach (var item in Items)
+            {
+                if (IsFreePosition(item.GridLocation))
+                {
+                    item.GridLocation = GetNewPosition(item.GridLocation);
+                }
+            }
         }
         #endregion
 
@@ -273,7 +269,7 @@ namespace Server.Items
                 }
             }
 
-            object parent = Parent;
+			var parent = Parent;
 
             while (parent != null)
             {
@@ -358,6 +354,11 @@ namespace Server.Items
         #region Consume[...]
         public bool ConsumeTotalGrouped(Type type, int amount, bool recurse, OnItemConsumed callback, CheckItemGroup grouper)
         {
+            return ConsumeTotalGrouped(type, amount, recurse, null, callback, grouper);
+        }
+
+        public bool ConsumeTotalGrouped(Type type, int amount, bool recurse, ResValidator validator, OnItemConsumed callback, CheckItemGroup grouper)
+        {
             if (grouper == null)
             {
                 throw new ArgumentNullException();
@@ -371,6 +372,10 @@ namespace Server.Items
             while (idx < typedItems.Length)
             {
                 Item a = typedItems[idx++];
+
+                if (validator != null && !validator(a))
+                    continue;
+
                 var group = new List<Item>();
 
                 group.Add(a);
@@ -378,6 +383,10 @@ namespace Server.Items
                 while (idx < typedItems.Length)
                 {
                     Item b = typedItems[idx];
+
+                    if (validator != null && !validator(b))
+                        continue;
+
                     int v = grouper(a, b);
 
                     if (v == 0)
@@ -465,6 +474,12 @@ namespace Server.Items
         public int ConsumeTotalGrouped(
             Type[] types, int[] amounts, bool recurse, OnItemConsumed callback, CheckItemGroup grouper)
         {
+            return ConsumeTotalGrouped(types, amounts, recurse, null, callback, grouper);
+        }
+
+        public int ConsumeTotalGrouped(
+            Type[] types, int[] amounts, bool recurse, ResValidator validator, OnItemConsumed callback, CheckItemGroup grouper)
+        {
             if (types.Length != amounts.Length)
             {
                 throw new ArgumentException();
@@ -487,6 +502,10 @@ namespace Server.Items
                 while (idx < typedItems.Length)
                 {
                     Item a = typedItems[idx++];
+
+                    if (validator != null && !validator(a))
+                        continue;
+
                     var group = new List<Item>();
 
                     group.Add(a);
@@ -494,6 +513,10 @@ namespace Server.Items
                     while (idx < typedItems.Length)
                     {
                         Item b = typedItems[idx];
+
+                        if (validator != null && !validator(b))
+                            continue;
+
                         int v = grouper(a, b);
 
                         if (v == 0)
@@ -585,6 +608,12 @@ namespace Server.Items
         public int ConsumeTotalGrouped(
             Type[][] types, int[] amounts, bool recurse, OnItemConsumed callback, CheckItemGroup grouper)
         {
+            return ConsumeTotalGrouped(types, amounts, recurse, null, callback, grouper);
+        }
+
+        public int ConsumeTotalGrouped(
+            Type[][] types, int[] amounts, bool recurse, ResValidator validator, OnItemConsumed callback, CheckItemGroup grouper)
+        {
             if (types.Length != amounts.Length)
             {
                 throw new ArgumentException();
@@ -607,6 +636,10 @@ namespace Server.Items
                 while (idx < typedItems.Length)
                 {
                     Item a = typedItems[idx++];
+
+                    if (validator != null && !validator(a))
+                        continue;
+
                     var group = new List<Item>();
 
                     group.Add(a);
@@ -614,6 +647,10 @@ namespace Server.Items
                     while (idx < typedItems.Length)
                     {
                         Item b = typedItems[idx];
+
+                        if (validator != null && !validator(b))
+                            continue;
+
                         int v = grouper(a, b);
 
                         if (v == 0)
@@ -1505,11 +1542,6 @@ namespace Server.Items
             GridPositions = 0x00000010
         }
 
-        public override void GetContextMenuEntries(Mobile from, List<ContextMenuEntry> list)
-        {
-            base.GetContextMenuEntries(from, list);
-        }
-
         public override void Serialize(GenericWriter writer)
         {
             base.Serialize(writer);
@@ -1525,15 +1557,16 @@ namespace Server.Items
 
             writer.Write((byte)flags);
 
-            if (GetSaveFlag(flags, SaveFlag.GridPositions))
+            /*if (GetSaveFlag(flags, SaveFlag.GridPositions))
             {
                 writer.Write(_Positions.Count);
+
                 foreach (var kvp in _Positions)
                 {
                     writer.Write(kvp.Key);
                     writer.Write(kvp.Value);
                 }
-            }
+            }*/
 
             if (GetSaveFlag(flags, SaveFlag.MaxItems))
             {
@@ -1754,7 +1787,7 @@ namespace Server.Items
 
         public virtual bool TryDropItem(Mobile from, Item dropped, bool sendFullMessage)
         {
-            if (!CheckHold(from, dropped, sendFullMessage, !CheckStack(from, dropped)))
+			if (!CheckStack(from, dropped) && !CheckHold(from, dropped, sendFullMessage, true))
             {
                 return false;
             }
@@ -1778,7 +1811,7 @@ namespace Server.Items
 
         public override void AddItem(Item item)
         {
-            SetPosition(item.GridLocation, item);
+            ValidateGridLocation(item);
 
             base.AddItem(item);
         }
@@ -1878,7 +1911,7 @@ namespace Server.Items
                 return false;
             }
 
-            object root = RootParent;
+			var root = RootParent;
 
             if (root == null || root is Item || root == from || from.IsStaff())
             {
@@ -1898,9 +1931,7 @@ namespace Server.Items
             }
         }
 
-        private List<Mobile> m_Openers;
-
-        public List<Mobile> Openers { get { return m_Openers; } set { m_Openers = value; } }
+		public List<Mobile> Openers { get; set; }
 
         public virtual bool IsPublicContainer { get { return false; } }
 
@@ -1908,12 +1939,12 @@ namespace Server.Items
         {
             base.OnDelete();
 
-            m_Openers = null;
+			Openers = null;
         }
 
         public virtual void DisplayTo(Mobile to)
         {
-            ProcessOpeners(to);
+			ProcessOpeners(to);
 
             NetState ns = to.NetState;
 
@@ -1921,6 +1952,8 @@ namespace Server.Items
             {
                 return;
             }
+
+            ValidatePositions();
 
             if (ns.HighSeas)
             {
@@ -1940,13 +1973,13 @@ namespace Server.Items
                 to.Send(new ContainerContent(to, this));
             }
 
-            if (ObjectPropertyList.Enabled)
+			if (to.ViewOPL)
             {
                 var items = Items;
 
-                for (int i = 0; i < items.Count; ++i)
+				foreach (var o in items)
                 {
-                    to.Send(items[i].OPLPacket);
+					to.Send(o.OPLPacket);
                 }
             }
         }
@@ -1957,14 +1990,14 @@ namespace Server.Items
             {
                 bool contains = false;
 
-                if (m_Openers != null)
+				if (Openers != null)
                 {
                     Point3D worldLoc = GetWorldLocation();
                     Map map = Map;
 
-                    for (int i = 0; i < m_Openers.Count; ++i)
+					for (int i = 0; i < Openers.Count; ++i)
                     {
-                        Mobile mob = m_Openers[i];
+						Mobile mob = Openers[i];
 
                         if (mob == opener)
                         {
@@ -1976,7 +2009,7 @@ namespace Server.Items
 
                             if (mob.Map != map || !mob.InRange(worldLoc, range))
                             {
-                                m_Openers.RemoveAt(i--);
+								Openers.RemoveAt(i--);
                             }
                         }
                     }
@@ -1984,16 +2017,16 @@ namespace Server.Items
 
                 if (!contains)
                 {
-                    if (m_Openers == null)
+					if (Openers == null)
                     {
-                        m_Openers = new List<Mobile>();
+						Openers = new List<Mobile>();
                     }
 
-                    m_Openers.Add(opener);
+					Openers.Add(opener);
                 }
-                else if (m_Openers != null && m_Openers.Count == 0)
+				else if (Openers != null && Openers.Count == 0)
                 {
-                    m_Openers = null;
+					Openers = null;
                 }
             }
         }
@@ -2006,7 +2039,7 @@ namespace Server.Items
             {
                 if (Core.ML)
                 {
-                    if (ParentsContain<BankBox>()) //Root Parent is the Mobile.  Parent could be another containter.
+                    if (ParentsContain<Item>() || IsLockedDown || IsSecure) //Root Parent is the Mobile.  Parent could be another containter.
                     {
                         list.Add(1073841, "{0}\t{1}\t{2}", TotalItems, MaxItems, TotalWeight);
                         // Contents: ~1_COUNT~/~2_MAXCOUNT~ items, ~3_WEIGHT~ stones
